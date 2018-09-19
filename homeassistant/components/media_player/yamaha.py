@@ -44,9 +44,12 @@ ENABLE_OUTPUT_SCHEMA = MEDIA_PLAYER_SCHEMA.extend({
 
 SERVICE_ENABLE_OUTPUT = 'yamaha_enable_output'
 
-SUPPORT_YAMAHA = SUPPORT_VOLUME_SET | SUPPORT_VOLUME_MUTE | \
-    SUPPORT_TURN_ON | SUPPORT_TURN_OFF | SUPPORT_SELECT_SOURCE | SUPPORT_PLAY \
-    | SUPPORT_SELECT_SOUND_MODE | SUPPORT_SCENE
+# Yamaha support following items in general.
+SUPPORT_YAMAHA_ALL = SUPPORT_VOLUME_SET | SUPPORT_VOLUME_MUTE | \
+    SUPPORT_TURN_ON | SUPPORT_TURN_OFF | SUPPORT_SELECT_SOURCE | \
+    SUPPORT_PLAY | SUPPORT_SCENE
+# Sound mode is only supported in "Main_Zone".
+SUPPORT_YAMAHA_MAIN = SUPPORT_YAMAHA_ALL | SUPPORT_SELECT_SOUND_MODE
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
@@ -164,6 +167,7 @@ class YamahaDevice(MediaPlayerDevice):
         self._play_status = None
         self._name = name
         self._zone = receiver.zone
+        self._is_main_zone = receiver.zone == "Main_Zone"
         self._scene = None
         self._scene_ignore = scene_ignore or []
 
@@ -197,11 +201,10 @@ class YamahaDevice(MediaPlayerDevice):
         self._playback_support = self.receiver.get_playback_support()
         self._is_playback_supported = self.receiver.is_playback_supported(
             self._current_source)
-        if self._zone == "Main_Zone":
+        if self._is_main_zone:
             self._sound_mode = self.receiver.surround_program
         else:
             self._sound_mode = None
-        self._scene = self.receiver.scene
 
     def build_source_list(self):
         """Build the source list."""
@@ -278,8 +281,16 @@ class YamahaDevice(MediaPlayerDevice):
 
     @property
     def supported_features(self):
-        """Flag media player features that are supported."""
-        supported_features = SUPPORT_YAMAHA
+        """Flag media player features that are supported.
+        
+        One has to distinguish between "Main_Zone", which supports
+        slightly more features, and the other zones.
+
+        This affects the appearance of the ``more-info`` 
+        dialog in the frontend
+        """
+        supported_features = SUPPORT_YAMAHA_MAIN \
+            if self._is_main_zone else SUPPORT_YAMAHA_ALL
 
         supports = self._playback_support
         mapping = {
@@ -353,8 +364,7 @@ class YamahaDevice(MediaPlayerDevice):
         """Set Sound Mode for Receiver.
         Works only on Main Zone
         """
-        if self._zone == "Main_Zone":
-            self.receiver.surround_program = sound_mode            
+        self.receiver.surround_program = sound_mode
 
     def play_media(self, media_type, media_id, **kwargs):
         """Play media from an ID.

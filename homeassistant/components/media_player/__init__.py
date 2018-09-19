@@ -59,6 +59,7 @@ SERVICE_PLAY_MEDIA = 'play_media'
 SERVICE_SELECT_SOURCE = 'select_source'
 SERVICE_SELECT_SOUND_MODE = 'select_sound_mode'
 SERVICE_CLEAR_PLAYLIST = 'clear_playlist'
+SERVICE_SELECT_SCENE = 'select_scene'
 
 ATTR_MEDIA_VOLUME_LEVEL = 'volume_level'
 ATTR_MEDIA_VOLUME_MUTED = 'is_volume_muted'
@@ -84,6 +85,8 @@ ATTR_INPUT_SOURCE = 'source'
 ATTR_INPUT_SOURCE_LIST = 'source_list'
 ATTR_SOUND_MODE = 'sound_mode'
 ATTR_SOUND_MODE_LIST = 'sound_mode_list'
+ATTR_SCENE = 'scene'
+ATTR_SCENE_LIST = 'scene_list'
 ATTR_MEDIA_ENQUEUE = 'enqueue'
 ATTR_MEDIA_SHUFFLE = 'shuffle'
 
@@ -115,6 +118,7 @@ SUPPORT_CLEAR_PLAYLIST = 8192
 SUPPORT_PLAY = 16384
 SUPPORT_SHUFFLE_SET = 32768
 SUPPORT_SELECT_SOUND_MODE = 65536
+SUPPORT_SCENE = 131072
 
 # Service call validation schemas
 MEDIA_PLAYER_SCHEMA = vol.Schema({
@@ -140,6 +144,10 @@ MEDIA_PLAYER_SELECT_SOURCE_SCHEMA = MEDIA_PLAYER_SCHEMA.extend({
 
 MEDIA_PLAYER_SELECT_SOUND_MODE_SCHEMA = MEDIA_PLAYER_SCHEMA.extend({
     vol.Required(ATTR_SOUND_MODE): cv.string,
+})
+
+MEDIA_PLAYER_SELECT_SCENE_SCHEMA = MEDIA_PLAYER_SCHEMA.extend({
+    vol.Required(ATTR_SCENE): cv.string,
 })
 
 MEDIA_PLAYER_PLAY_MEDIA_SCHEMA = MEDIA_PLAYER_SCHEMA.extend({
@@ -176,6 +184,8 @@ ATTR_TO_PROPERTY = [
     ATTR_INPUT_SOURCE_LIST,
     ATTR_SOUND_MODE,
     ATTR_SOUND_MODE_LIST,
+    ATTR_SCENE,
+    ATTR_SCENE_LIST,
     ATTR_MEDIA_SHUFFLE,
 ]
 
@@ -337,6 +347,17 @@ def select_sound_mode(hass, sound_mode, entity_id=None):
 
 
 @bind_hass
+def select_scene(hass, scene, entity_id=None):
+    """Send the media player the command to select sound mode."""
+    data = {ATTR_SCENE: scene}
+
+    if entity_id:
+        data[ATTR_ENTITY_ID] = entity_id
+
+    hass.services.call(DOMAIN, SERVICE_SELECT_SCENE, data)
+
+
+@bind_hass
 def clear_playlist(hass, entity_id=None):
     """Send the media player the command for clear playlist."""
     data = {ATTR_ENTITY_ID: entity_id} if entity_id else {}
@@ -444,6 +465,10 @@ async def async_setup(hass, config):
     component.async_register_entity_service(
         SERVICE_SELECT_SOUND_MODE, MEDIA_PLAYER_SELECT_SOUND_MODE_SCHEMA,
         'async_select_sound_mode'
+    )
+    component.async_register_entity_service(
+        SERVICE_SELECT_SCENE, MEDIA_PLAYER_SELECT_SCENE_SCHEMA,
+        'async_select_scene'
     )
     component.async_register_entity_service(
         SERVICE_PLAY_MEDIA, MEDIA_PLAYER_PLAY_MEDIA_SCHEMA,
@@ -631,6 +656,16 @@ class MediaPlayerDevice(Entity):
         return None
 
     @property
+    def scene(self):
+        """Name of the current scene"""
+        return None
+
+    @property
+    def scene_list(self):
+        """List of available scenes"""
+        return None
+
+    @property
     def shuffle(self):
         """Boolean if shuffle is enabled."""
         return None
@@ -784,6 +819,17 @@ class MediaPlayerDevice(Entity):
         """
         return self.hass.async_add_job(self.select_sound_mode, sound_mode)
 
+    def select_scene(self, scene):
+        """Select scene."""
+        raise NotImplementedError()
+
+    def async_select_scene(self, scene):
+        """Select scene.
+
+        This method must be run in the event loop and returns a coroutine.
+        """
+        return self.hass.async_add_job(self.select_scene, scene)
+
     def clear_playlist(self):
         """Clear players playlist."""
         raise NotImplementedError()
@@ -861,6 +907,11 @@ class MediaPlayerDevice(Entity):
     def support_select_sound_mode(self):
         """Boolean if select sound mode command supported."""
         return bool(self.supported_features & SUPPORT_SELECT_SOUND_MODE)
+
+    @property
+    def support_scene(self):
+        """Boolean if select sound mode command supported."""
+        return bool(self.supported_features & SUPPORT_SCENE)
 
     @property
     def support_clear_playlist(self):
