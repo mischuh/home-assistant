@@ -138,7 +138,6 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     hass.services.register(
         DOMAIN, SERVICE_ENABLE_OUTPUT, service_handler,
         schema=ENABLE_OUTPUT_SCHEMA)
-
     add_entities(devices)
 
 
@@ -205,6 +204,7 @@ class YamahaDevice(MediaPlayerDevice):
             self._sound_mode = self.receiver.surround_program
         else:
             self._sound_mode = None
+        self._scene = self.receiver.scene
 
     def build_source_list(self):
         """Build the source list."""
